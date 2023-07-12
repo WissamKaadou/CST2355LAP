@@ -23,35 +23,6 @@ private MainViewModel model;
         setContentView(variableBinding.getRoot());
 
 
-        variableBinding.mybutton.setOnClickListener(click ->
-                {
-                    model.editString.postValue(variableBinding.editText.getText().toString());
-                    variableBinding.textview.setText("Your edit text has: " + model.editString);
-                }
-                );
-
-        model.editString.observe(this, s -> {
-            variableBinding.textview.setText("Your edit has: " + s);
-        });
-
-        model.getDrinkCoffeeLiveData().observe(this, selected -> {
-            variableBinding.checkBox.setChecked(selected);
-            variableBinding.radioButton.setChecked(selected);
-            variableBinding.switchButton.setChecked(selected);
-        });
-
-        variableBinding.checkBox.setOnCheckedChangeListener((compoundButton, isChecked) -> {
-            model.getDrinkCoffeeLiveData().postValue(isChecked);
-        });
-
-        variableBinding.switchButton.setOnCheckedChangeListener((compoundButton, isChecked) -> {
-            model.getDrinkCoffeeLiveData().postValue(isChecked);
-        });
-
-        variableBinding.radioButton.setOnCheckedChangeListener((compoundButton, isChecked) -> {
-            model.getDrinkCoffeeLiveData().postValue(isChecked);
-        });
-
 
 
     }
