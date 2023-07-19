@@ -25,6 +25,7 @@ import com.google.android.material.snackbar.Snackbar;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
@@ -104,6 +105,7 @@ public class ChatRoom extends AppCompatActivity {
             {
                 messages.addAll(mDAO.getAllMessages()); //Once you get the data from database
 
+
                 runOnUiThread(() -> binding.recycleView.setAdapter(myAdapter)); //You can then load the RecyclerView
             });
         }
@@ -155,12 +157,22 @@ public class ChatRoom extends AppCompatActivity {
             boolean isSentButton = true;
             ChatMessage chatMessage = new ChatMessage(message, timeSent, isSentButton);
             messages.add(chatMessage);
-            myAdapter.notifyItemInserted(messages.size() - 1);
-            binding.textInput.setText("");
 
-            chatModel.messages.postValue(messages); // Update ViewModel with the latest messages
+            Executor thread = Executors.newSingleThreadExecutor();
+            thread.execute(() -> {
+                mDAO.insertMessage(chatMessage); // Insert the message into the database
+
+                List<ChatMessage> allMessages = mDAO.getAllMessages(); // Retrieve all messages from the database
+                messages.clear();
+                messages.addAll(allMessages);
+
+                runOnUiThread(() -> {
+                    myAdapter.notifyItemInserted(messages.size() - 1);
+                    binding.textInput.setText("");
+                    chatModel.messages.postValue(messages);
+                });
+            });
         });
-
         binding.receiveButton.setOnClickListener(click -> {
             String message = binding.textInput.getText().toString();
             String timeSent = getCurrentTime();
