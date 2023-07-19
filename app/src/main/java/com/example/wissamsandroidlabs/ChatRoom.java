@@ -20,6 +20,7 @@ import android.widget.TextView;
 import com.example.wissamsandroidlabs.databinding.ActivityChatRoomBinding;
 import com.example.wissamsandroidlabs.databinding.ReceiveMessageBinding;
 import com.example.wissamsandroidlabs.databinding.SentMessageBinding;
+import com.google.android.material.snackbar.Snackbar;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -46,14 +47,14 @@ public class ChatRoom extends AppCompatActivity {
      */
 
     @Entity
-    public class ChatMessage {
-        @ColumnInfo(name="message")
+    public static class ChatMessage {
+        @ColumnInfo(name = "message")
         protected String message;
 
-        @ColumnInfo(name="timeSent")
+        @ColumnInfo(name = "timeSent")
         protected String timeSent;
 
-        @ColumnInfo(name="SendOrReceive")
+        @ColumnInfo(name = "SendOrReceive")
         protected boolean isSentButton;
 
         @PrimaryKey(autoGenerate = true)
@@ -82,6 +83,7 @@ public class ChatRoom extends AppCompatActivity {
     private RecyclerView.Adapter<MyRowHolder> myAdapter;
 
     private ChatMessageDAO mDAO;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -94,16 +96,15 @@ public class ChatRoom extends AppCompatActivity {
 
         chatModel = new ViewModelProvider(this).get(ChatRoomViewModel.class);
         ArrayList<ChatMessage> chatMessages = chatModel.messages.getValue();
-        if(messages == null)
-        {
+        if (messages == null) {
             chatModel.messages.setValue(messages = new ArrayList<>());
 
             Executor thread = Executors.newSingleThreadExecutor();
             thread.execute(() ->
             {
-                messages.addAll( mDAO.getAllMessages() ); //Once you get the data from database
+                messages.addAll(mDAO.getAllMessages()); //Once you get the data from database
 
-                runOnUiThread( () ->  binding.recycleView.setAdapter( myAdapter )); //You can then load the RecyclerView
+                runOnUiThread(() -> binding.recycleView.setAdapter(myAdapter)); //You can then load the RecyclerView
             });
         }
         LinearLayoutManager layoutManager = new LinearLayoutManager(this);
@@ -127,7 +128,7 @@ public class ChatRoom extends AppCompatActivity {
             @Override
             public void onBindViewHolder(@NonNull MyRowHolder holder, int position) {
                 ChatMessage chatMessage = messages.get(position);
-                holder.bind(chatMessage);
+                holder.bind(chatMessage, mDAO);
             }
 
             @Override
@@ -193,24 +194,41 @@ public class ChatRoom extends AppCompatActivity {
         public MyRowHolder(@NonNull View itemView) {
             super(itemView);
 
-            itemView.setOnClickListener(clk -> {
-                int position = getAbsoluteAdapterPosition();
-                AlertDialog.Builder builder = new AlertDialog.Builder(ChatRoom.this);
-                        builder.setMessage("Do you want to delete this message: " + messageText.getText());
-                builder.setTitle("Question");
-                builder.setNegativeButton("No", (dialog, cl) -> {});
-                builder.setPositiveButton("Yes", (dialog, cl) -> {
-                            ChatMessage m = messages.get(position);
-                            mDAO.deleteMessage(m);
-                            messages.remove(position);
-                            myAdapter.notifyItemRemoved(position);
-                        });
-                builder.create().show();
-            });
-
             messageText = itemView.findViewById(R.id.message);
             timeText = itemView.findViewById(R.id.time);
         }
+
+        public void bind(ChatMessage chatMessage, ChatMessageDAO mDAO) {
+            messageText.setText(chatMessage.getMessage());
+            timeText.setText(chatMessage.getTimeSent());
+
+            itemView.setOnClickListener(clk -> {
+                int position = getAbsoluteAdapterPosition();
+                ChatMessage removeMessage = messages.get(position);
+
+                AlertDialog.Builder builder = new AlertDialog.Builder(itemView.getContext());
+                builder.setMessage("Do you want to delete this message: " + chatMessage.getMessage());
+                builder.setTitle("Question");
+                builder.setNegativeButton("No", (dialog, cl) -> {
+                });
+                builder.setPositiveButton("Yes", (dialog, cl) -> {
+
+                   ChatMessage removedMessage = messages.get(position);
+                    messages.remove(position);
+                    myAdapter.notifyItemRemoved(position);
+
+                    Snackbar.make(itemView, "You deleted message #" + position, Snackbar.LENGTH_LONG)
+                            .setAction("Undo", undoclk -> {
+                                // Undo logic here
+                                messages.add(position, removedMessage);
+                                myAdapter.notifyItemInserted(position);
+                            })
+                            .show();
+                });
+                builder.create().show();
+            });
+        }
+    }
 
 
         /**
@@ -218,30 +236,26 @@ public class ChatRoom extends AppCompatActivity {
          *
          * @param chatMessage The chat message to bind.
          */
-        public void bind(ChatMessage chatMessage) {
-            messageText.setText(chatMessage.getMessage());
-            timeText.setText(chatMessage.getTimeSent());
+
+        /**
+         * Remove a message from the ArrayList at the specified position.
+         *
+         * @param position The position of the message to remove.
+         */
+        public void removeMessage(int position) {
+            messages.remove(position);
+            myAdapter.notifyItemRemoved(position);
+        }
+
+        /**
+         * Update the entire ArrayList of messages with the new messages.
+         *
+         * @param newMessages The new ArrayList of messages.
+         */
+        public void updateMessages(ArrayList<ChatMessage> newMessages) {
+            messages.clear();
+            messages.addAll(newMessages);
+            myAdapter.notifyDataSetChanged();
         }
     }
 
-    /**
-     * Remove a message from the ArrayList at the specified position.
-     *
-     * @param position The position of the message to remove.
-     */
-    public void removeMessage(int position) {
-        messages.remove(position);
-        myAdapter.notifyItemRemoved(position);
-    }
-
-    /**
-     * Update the entire ArrayList of messages with the new messages.
-     *
-     * @param newMessages The new ArrayList of messages.
-     */
-    public void updateMessages(ArrayList<ChatMessage> newMessages) {
-        messages.clear();
-        messages.addAll(newMessages);
-        myAdapter.notifyDataSetChanged();
-    }
-}
